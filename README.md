@@ -8,4 +8,6 @@ Add this to your Hammerspoon's init.lua:
     spoon.RedactClipboard:setRedactWords({"top-secret"})
     spoon.RedactClipboard:setReplacement("redacted")
     spoon.RedactClipboard:setCaseSensitive(false)
+    spoon.RedactClipboard:start()
+
 
