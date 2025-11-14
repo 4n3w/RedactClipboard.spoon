@@ -2,7 +2,7 @@
 ---
 --- Automatically redacts specified words from clipboard content
 ---
---- Download: https://github.com/Hammerspoon/Spoons
+--- Download: https://github.com/4n3w/RedactClipboard.Spoon
 --- License: MIT
 
 local obj = {}
