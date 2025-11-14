@@ -91,7 +91,7 @@ end
 ---
 --- Parameters:
 ---  * map - A table mapping keywords to replacement strings
----           Example: {["microsoft.com"] = "redacteddomain.tld", ["microsoft"] = "redactedcompanyname"}
+---           Example: {["redactedcompanyname.com"] = "redacteddomain.tld", ["redactedcompanyname"] = "redactedcompanyname"}
 function obj:setRedactMap(map)
     self.redactMap = map or {}
     self.logger.i("Set redact map: " .. hs.inspect(self.redactMap))
@@ -212,16 +212,14 @@ function obj:redactText(text)
     -- First, process mapped keywords (these take priority)
     for keyword, replacement in pairs(self.redactMap) do
         local pattern = keyword
+        -- Escape special regex characters first
+        pattern = pattern:gsub("([%.%-%+%[%]%(%)%$%^%%%?%*])", "%%%1")
+        
         if not self.caseSensitive then
-            -- Case-insensitive pattern matching
-            pattern = keyword:gsub("([%w])", function(c)
+            -- Then make it case-insensitive
+            pattern = pattern:gsub("([%a])", function(c)
                 return "[" .. c:lower() .. c:upper() .. "]"
             end)
-            -- Escape special characters (like dots in domains)
-            pattern = pattern:gsub("([%.%-%+%[%]%(%)%$%^%%%?%*])", "%%%1")
-        else
-            -- Escape special characters for case-sensitive mode too
-            pattern = pattern:gsub("([%.%-%+%[%]%(%)%$%^%%%?%*])", "%%%1")
         end
         
         -- Match whole words only (with word boundaries)
