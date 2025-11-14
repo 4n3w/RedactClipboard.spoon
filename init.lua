@@ -16,8 +16,9 @@ obj.homepage = "https://github.com/4n3w/RedactClipboard.Spoon"
 obj.license = "MIT - https://opensource.org/licenses/MIT"
 
 -- Configuration
-obj.redactWords = {}  -- List of words to redact
-obj.redactReplacement = "[REDACTED]"  -- What to replace with
+obj.redactWords = {}  -- List of words to redact (uses default replacement)
+obj.redactMap = {}    -- Map of keyword -> replacement
+obj.redactReplacement = "[REDACTED]"  -- Default replacement
 obj.caseSensitive = false  -- Whether matching should be case-sensitive
 obj.logger = hs.logger.new('RedactClipboard')
 obj.showMenubar = true  -- Whether to show menubar icon
@@ -70,7 +71,7 @@ end
 
 --- RedactClipboard:setRedactWords(words)
 --- Method
---- Sets the words to redact from clipboard
+--- Sets the words to redact from clipboard (uses default replacement)
 ---
 --- Parameters:
 ---  * words - A table of strings to redact, or a single string
@@ -84,9 +85,35 @@ function obj:setRedactWords(words)
     return self
 end
 
+--- RedactClipboard:setRedactMap(map)
+--- Method
+--- Sets a mapping of keywords to their custom replacements
+---
+--- Parameters:
+---  * map - A table mapping keywords to replacement strings
+---           Example: {["microsoft.com"] = "redacteddomain.tld", ["microsoft"] = "redactedcompanyname"}
+function obj:setRedactMap(map)
+    self.redactMap = map or {}
+    self.logger.i("Set redact map: " .. hs.inspect(self.redactMap))
+    return self
+end
+
+--- RedactClipboard:addRedactMapping(keyword, replacement)
+--- Method
+--- Adds a single keyword-to-replacement mapping
+---
+--- Parameters:
+---  * keyword - The keyword to redact
+---  * replacement - What to replace it with
+function obj:addRedactMapping(keyword, replacement)
+    self.redactMap[keyword] = replacement
+    self.logger.i("Added mapping: " .. keyword .. " -> " .. replacement)
+    return self
+end
+
 --- RedactClipboard:setReplacement(replacement)
 --- Method
---- Sets the replacement text for redacted words
+--- Sets the default replacement text for redacted words
 ---
 --- Parameters:
 ---  * replacement - String to use instead of redacted words (default: "[REDACTED]")
@@ -181,6 +208,27 @@ function obj:redactText(text)
     if not text then return nil end
 
     local redacted = text
+    
+    -- First, process mapped keywords (these take priority)
+    for keyword, replacement in pairs(self.redactMap) do
+        local pattern = keyword
+        if not self.caseSensitive then
+            -- Case-insensitive pattern matching
+            pattern = keyword:gsub("([%w])", function(c)
+                return "[" .. c:lower() .. c:upper() .. "]"
+            end)
+            -- Escape special characters (like dots in domains)
+            pattern = pattern:gsub("([%.%-%+%[%]%(%)%$%^%%%?%*])", "%%%1")
+        else
+            -- Escape special characters for case-sensitive mode too
+            pattern = pattern:gsub("([%.%-%+%[%]%(%)%$%^%%%?%*])", "%%%1")
+        end
+        
+        -- Match whole words only (with word boundaries)
+        redacted = redacted:gsub("%f[%w]" .. pattern .. "%f[%W]", replacement)
+    end
+    
+    -- Then process simple redactWords list with default replacement
     for _, word in ipairs(self.redactWords) do
         local pattern = word
         if not self.caseSensitive then
@@ -223,8 +271,8 @@ end
 --- Method
 --- Starts watching the clipboard for changes
 function obj:start()
-    if #self.redactWords == 0 then
-        self.logger.w("No redact words configured, not starting")
+    if #self.redactWords == 0 and next(self.redactMap) == nil then
+        self.logger.w("No redact words or mappings configured, not starting")
         return self
     end
 
